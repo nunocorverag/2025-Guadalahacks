@@ -4,9 +4,6 @@ import numpy as np
 from sklearn.neighbors import BallTree
 import matplotlib.pyplot as plt
 
-import numpy as np
-from sklearn.neighbors import BallTree
-
 def query_nearest(source_gdf, target_gdf):
     source_coords = np.array([[pt.x, pt.y] for pt in source_gdf["centroid"]])
     target_coords = np.array([[pt.x, pt.y] for pt in target_gdf["centroid"]])

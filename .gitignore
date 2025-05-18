@@ -2,3 +2,4 @@
 /data/
 /satellite_images/
 .env
+/test/

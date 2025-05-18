@@ -14,11 +14,11 @@ OUTPUT_CSV = r"C:\Users\52331\Desktop\ArchivosGuadalahack\tramos_fuera_rango_con
 def cargar_geojson_de_carpeta(carpeta):
     archivos = glob.glob(os.path.join(carpeta, "*.geojson"))
     if not archivos:
-        print(f"⚠️ No se encontraron archivos en {carpeta}")
+        print(f"No se encontraron archivos en {carpeta}")
         return None
     gdfs = []
     for archivo in archivos:
-        print(f"📥 Leyendo: {os.path.basename(archivo)}")
+        print(f"Leyendo: {os.path.basename(archivo)}")
         gdf = gpd.read_file(archivo)
         gdfs.append(gdf)
     return gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True), crs=gdfs[0].crs) if gdfs else None
@@ -29,9 +29,9 @@ gdf_name = cargar_geojson_de_carpeta(NAME_ADDR_DIR)
 
 # Validación
 if gdf_nav is None or gdf_nav.empty:
-    raise ValueError("❌ No se cargaron archivos válidos desde STREETS_NAV.")
+    raise ValueError("No se cargaron archivos válidos desde STREETS_NAV.")
 if gdf_name is None or gdf_name.empty:
-    raise ValueError("❌ No se cargaron archivos válidos desde STREETS_NAMING_ADDRESSING.")
+    raise ValueError("No se cargaron archivos válidos desde STREETS_NAMING_ADDRESSING.")
 
 # Filtrar MULTIDIGIT con condiciones
 gdf_md = gdf_nav[
@@ -41,11 +41,11 @@ gdf_md = gdf_nav[
     (gdf_nav["MANOEUVRE"] != "Y")
 ].copy()
 
-print(f"\n🔎 Tramos MULTIDIGIT = 'Y' filtrados: {len(gdf_md)}")
+print(f"\n Tramos MULTIDIGIT = 'Y' filtrados: {len(gdf_md)}")
 
 # Reproyectar a UTM zona 14N si es necesario
 if gdf_md.crs.to_epsg() != 32614:
-    print("🌐 Reproyectando a EPSG:32614...")
+    print("Reproyectando a EPSG:32614...")
     gdf_md = gdf_md.to_crs(epsg=32614)
 
 # Calcular centroides
@@ -86,7 +86,7 @@ df_all = pd.concat([df_fwd, df_rev], ignore_index=True)
 if "link_id" in gdf_name.columns and "ST_NAME" in gdf_name.columns:
     df_all = df_all.merge(gdf_name[["link_id", "ST_NAME"]], on="link_id", how="left")
 else:
-    print("⚠️ El dataset de Naming Addressing no contiene columnas esperadas.")
+    print("El dataset de Naming Addressing no contiene columnas esperadas.")
 
 # Filtrar fuera de rango
 df_bad = df_all[
@@ -98,9 +98,9 @@ df_bad.sort_values(by="separacion_m", ascending=True, inplace=True)
 df_bad.reset_index(drop=True, inplace=True)
 
 # Mostrar resultados
-print(f"\n⚠️ Segmentos con MULTIDIGIT mal atribuido: {len(df_bad)}")
+print(f"\n Segmentos con MULTIDIGIT mal atribuido: {len(df_bad)}")
 print(df_bad[["link_id", "dir_travel", "separacion_m", "ST_NAME"]].head(10))
 
 # Guardar resultados
 df_bad.to_csv(OUTPUT_CSV, index=False)
-print(f"\n✅ Resultados guardados en: {OUTPUT_CSV}")
+print(f"\n Resultados guardados en: {OUTPUT_CSV}")

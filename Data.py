@@ -1,6 +1,5 @@
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import LineString, Point
 from fac_type_lookup import fac_type_lookup
 
 # Cargar archivos
@@ -21,38 +20,44 @@ linkName = {row['link_id']: row['ST_NAME'] for _, row in filteredNaming.iterrows
 # Filtrar POIs que caen en links válidos
 POIStreetConcordance = POI[POI['LINK_ID'].isin(linkName)].copy()
 
-# Agregar descripciones
-POIStreetConcordance['FAC_DESC_EN'] = POIStreetConcordance['FAC_TYPE'].map(
-    lambda x: fac_type_lookup.get(x, ("Unknown", "Desconocido"))[0]
+# Agregar descripciones desde lookup
+POIStreetConcordance['FAC_DESC_EN'] = POIStreetConcordance['FAC_TYPE'].astype(str).map(
+    lambda x: fac_type_lookup.get(x, {}).get("desc_en", "Unknown")
 )
-POIStreetConcordance['FAC_DESC_ES'] = POIStreetConcordance['FAC_TYPE'].map(
-    lambda x: fac_type_lookup.get(x, ("Unknown", "Desconocido"))[1]
-)
-
-# Diccionario: link_id → geometría de calle
-link_geoms = {row['link_id']: row.geometry for _, row in multiDigiStreetNav.iterrows()}
-
-# Calcular coordenadas: inicial y por PERCFRREF
-def get_coords(link_id, perc):
-    geom = link_geoms.get(link_id)
-    if geom and isinstance(geom, LineString):
-        # Coordenada con menor latitud
-        min_lat_coord = min(geom.coords, key=lambda c: c[1])
-        # Coordenada por porcentaje
-        perc = float(perc) if pd.notnull(perc) else 0
-        perc = min(max(perc, 0), 1)  # Clamp 0-1
-        point_by_perc = geom.interpolate(geom.length * perc)
-        return min_lat_coord[1], min_lat_coord[0], point_by_perc.y, point_by_perc.x
-    return None, None, None, None
-
-POIStreetConcordance[['LAT_INIT', 'LON_INIT', 'LAT_PERC', 'LON_PERC']] = POIStreetConcordance.apply(
-    lambda row: pd.Series(get_coords(row['LINK_ID'], row['PERCFRREF'])), axis=1
+POIStreetConcordance['FAC_DESC_ES'] = POIStreetConcordance['FAC_TYPE'].astype(str).map(
+    lambda x: fac_type_lookup.get(x, {}).get("desc_es", "Desconocido")
 )
 
-# Mostrar primeros 5 del tipo 4013
-print(
-    POIStreetConcordance[POIStreetConcordance['FAC_TYPE'] == 4013][
-        ['FAC_TYPE', 'FAC_DESC_EN', 'FAC_DESC_ES', 'POI_NAME', 'LINK_ID', 'PERCFRREF',
-         'LAT_INIT', 'LON_INIT', 'LAT_PERC', 'LON_PERC']
-    ].head(5)
+# Agregar tamaño y between si se desea
+POIStreetConcordance['FAC_SIZE'] = POIStreetConcordance['FAC_TYPE'].astype(str).map(
+    lambda x: fac_type_lookup.get(x, {}).get("size", None)
 )
+POIStreetConcordance['FAC_BETWEEN'] = POIStreetConcordance['FAC_TYPE'].astype(str).map(
+    lambda x: fac_type_lookup.get(x, {}).get("between", "N")
+)
+
+# Obtener coordenada de menor latitud (más al sur) del LINK_ID desde streets_nav
+def get_min_lat_coords(link_id):
+    geometries = streetNav[streetNav['link_id'] == link_id].geometry
+    if geometries.empty:
+        return None, None
+    all_coords = []
+    for geom in geometries:
+        if geom.geom_type == 'LineString':
+            all_coords.extend(geom.coords)
+        elif geom.geom_type == 'MultiLineString':
+            for line in geom.geoms:
+                all_coords.extend(line.coords)
+    if not all_coords:
+        return None, None
+    # Buscar el punto con menor latitud (coordenada[1])
+    min_point = min(all_coords, key=lambda p: p[1])
+    return min_point[0], min_point[1]  # (longitud, latitud)
+
+# Agregar coordenadas mínimas
+POIStreetConcordance[['min_long', 'min_lat']] = POIStreetConcordance['LINK_ID'].apply(
+    lambda lid: pd.Series(get_min_lat_coords(lid))
+)
+
+# Mostrar algunos resultados
+print(POIStreetConcordance[['POI_NAME', 'FAC_DESC_EN', 'FAC_DESC_ES', 'min_long', 'min_lat']].head())
